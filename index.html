@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vault</title>
+<style>
+:root{--bg:#0d0f13;--steel1:#3a3f48;--steel2:#1c2027;--hi:#c9d1dc;--acc:#e0a33a;--ok:#3fd18b;--bad:#ff5a5a;--txt:#e6e9ef;--mut:#8a93a3}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:radial-gradient(ellipse at top,#1d222b,#07080a 70%);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{background:linear-gradient(#3b414b,#22262d);border:1px solid #4b525e;border-radius:10px;padding:9px 14px;box-shadow:inset 0 1px 0 #ffffff22,0 2px 6px #0008;transition:.15s}
+.btn:hover{filter:brightness(1.2)}.btn:active{transform:translateY(1px)}
+.btn.acc{background:linear-gradient(#f0b54d,#b97d1c);color:#1a1205;border-color:#f6c46a;font-weight:600}
+.btn.danger{background:linear-gradient(#a33,#611);border-color:#c44}
+/* LOCK */
+#lock{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;perspective:1600px;z-index:50}
+#door{width:min(94vw,520px);padding:22px 18px 26px;border-radius:28px;background:repeating-linear-gradient(90deg,#ffffff05 0 2px,#0000 2px 5px),linear-gradient(145deg,#4a505a,#22262d 55%,#16191e);border:2px solid #5a616d;box-shadow:0 30px 80px #000c,inset 0 2px 0 #ffffff30,inset 0 -6px 20px #0008;text-align:center;transform-origin:left center;transition:transform 1.3s cubic-bezier(.6,.05,.3,1),opacity 1.3s}
+#door.open{transform:rotateY(-105deg);opacity:0}
+#door.shake{animation:shake .5s}
+@keyframes shake{20%,60%{transform:translateX(-12px)}40%,80%{transform:translateX(12px)}}
+#door h1{margin:0 0 4px;letter-spacing:.35em;font-size:20px;color:var(--hi)}
+#msg{min-height:22px;color:var(--mut);font-size:14px;margin-bottom:10px}
+#msg.bad{color:var(--bad)}#msg.ok{color:var(--ok)}
+#dialWrap{position:relative;width:min(78vw,340px);aspect-ratio:1;margin:0 auto;touch-action:none;user-select:none}
+#dial{width:100%;height:100%;cursor:grab;filter:drop-shadow(0 10px 18px #000a)}
+#dial.drag{cursor:grabbing}
+#marker{position:absolute;left:50%;top:-4px;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:18px solid var(--acc);filter:drop-shadow(0 0 6px var(--acc))}
+#readout{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:700 34px ui-monospace,monospace;color:var(--acc);pointer-events:none;text-shadow:0 0 12px #e0a33a88}
+#slots{display:flex;gap:10px;justify-content:center;margin:16px 0 12px}
+.slot{width:54px;height:46px;border-radius:10px;background:#0b0d10;border:1px solid #444b56;display:flex;align-items:center;justify-content:center;font:700 20px ui-monospace,monospace;box-shadow:inset 0 3px 8px #000}
+.slot.f{border-color:var(--acc);color:var(--acc)}.slot.cur{box-shadow:inset 0 3px 8px #000,0 0 0 2px #e0a33a66}
+.ctrls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--mut);margin-top:10px}
+/* VAULT */
+#vault{display:none;max-width:1100px;margin:0 auto;padding:16px max(14px,env(safe-area-inset-left)) 40px}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+header h2{margin:0;letter-spacing:.3em;font-size:18px;color:var(--hi);flex:1}
+#search{flex:1 1 200px;background:#0b0d10;border:1px solid #444b56;border-radius:10px;padding:10px 12px;color:var(--txt)}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.tile{position:relative;border-radius:18px;padding:18px 12px 12px;text-align:center;background:linear-gradient(160deg,var(--c),#15181d 120%);border:1px solid #ffffff22;box-shadow:0 8px 20px #0008,inset 0 1px 0 #ffffff33;cursor:pointer;transition:transform .15s,box-shadow .15s;animation:pop .3s}
+.tile:hover{transform:translateY(-3px);box-shadow:0 14px 26px #000a}
+.tile.dragging{opacity:.4}.tile.over{outline:2px dashed var(--acc)}
+@keyframes pop{from{transform:scale(.8);opacity:0}}
+.tile .ic{font-size:44px;line-height:1.1}.tile .nm{margin-top:8px;font-weight:600;word-break:break-word}
+.tile .tp{font-size:11px;color:#ffffffaa;margin-top:2px}
+.tile .acts{position:absolute;top:6px;right:6px;display:flex;gap:4px;opacity:.0;transition:.15s}
+.tile:hover .acts,.tile:focus-within .acts{opacity:1}
+@media (hover:none){.tile .acts{opacity:1}}
+.acts button{background:#000a;border:none;border-radius:8px;width:28px;height:28px;font-size:14px}
+.empty{grid-column:1/-1;text-align:center;color:var(--mut);padding:50px}
+/* MODAL */
+.modal{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:60;padding:12px}
+.modal.on{display:flex}
+.card{background:linear-gradient(160deg,#2b3038,#16191e);border:1px solid #4b525e;border-radius:18px;padding:20px;width:min(100%,460px);max-height:92vh;overflow:auto;box-shadow:0 20px 60px #000}
+.card h3{margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input[type=text],input[type=url],input[type=number],select{width:100%;background:#0b0d10;border:1px solid #444b56;border-radius:10px;padding:10px;color:var(--txt)}
+.emojis,.colors{display:flex;flex-wrap:wrap;gap:6px}
+.emojis button{font-size:22px;width:40px;height:40px;border-radius:10px;background:#0b0d10;border:1px solid #333}
+.colors button{width:30px;height:30px;border-radius:50%;border:2px solid transparent}
+.sel{outline:2px solid var(--acc)!important}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.seg{display:flex;gap:6px}.seg button{flex:1}
+#viewer .card{width:min(100%,1000px);height:90vh;display:flex;flex-direction:column;padding:10px}
+#viewer iframe{flex:1;border:0;border-radius:10px;background:#fff}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222831;border:1px solid #4b525e;padding:10px 16px;border-radius:10px;opacity:0;transition:.3s;z-index:99;pointer-events:none}
+#toast.on{opacity:1}
+</style></head><body>
+<div id="lock"><div id="door">
+ <h1>VAULT</h1><div id="msg">Loading…</div>
+ <div id="dialWrap"><div id="marker"></div><svg id="dial" viewBox="-110 -110 220 220"></svg><div id="readout">0</div></div>
+ <div id="slots"></div>
+ <div class="ctrls">
+  <button class="btn" id="ccw" aria-label="Rotate left">⟲</button>
+  <button class="btn" id="back">⌫</button>
+  <button class="btn acc" id="setBtn">Set number</button>
+  <button class="btn" id="cw" aria-label="Rotate right">⟳</button>
+ </div>
+ <div class="ctrls" style="margin-top:8px"><button class="btn" id="cancelChange" style="display:none">Cancel</button></div>
+ <div class="hint">Drag the dial or use ← → keys / ⟲ ⟳. Press <b>Enter</b>, Space or “Set number” to lock in each digit.</div>
+</div></div>
+
+<div id="vault">
+ <header><h2>🔐 VAULT</h2>
+  <input id="search" placeholder="Search apps…">
+  <button class="btn acc" id="addBtn">+ Add app</button>
+  <button class="btn" id="setBtn2" title="Settings">⚙️</button>
+  <button class="btn" id="lockBtn">🔒 Lock</button>
+ </header>
+ <div id="grid"></div>
+</div>
+
+<div class="modal" id="editM"><div class="card">
+ <h3 id="editT">Add app</h3>
+ <label>Name</label><input type="text" id="fName" maxlength="40">
+ <label>Type</label><div class="seg"><button class="btn" data-t="link" id="tLink">🔗 Link</button><button class="btn" data-t="html" id="tHtml">📄 HTML file</button></div>
+ <div id="linkBox"><label>URL</label><input type="url" id="fUrl" placeholder="https://…"></div>
+ <div id="htmlBox"><label>HTML file <span id="fileInfo"></span></label><input type="file" id="fFile" accept=".html,.htm,text/html"></div>
+ <label>Icon</label><div class="emojis" id="emojis"></div>
+ <label>Color</label><div class="colors" id="colors"></div>
+ <div class="row"><button class="btn" id="eCancel">Cancel</button><button class="btn acc" id="eSave">Save</button></div>
+</div></div>
+
+<div class="modal" id="setM"><div class="card">
+ <h3>Settings</h3>
+ <label>Auto-lock after inactivity (minutes, 0 = never)</label><input type="number" id="fAuto" min="0" max="240">
+ <div class="row" style="justify-content:flex-start">
+  <button class="btn" id="chgBtn">🔑 Change combination</button>
+  <button class="btn" id="expBtn">⬇️ Export backup</button>
+  <button class="btn" id="impBtn">⬆️ Import backup</button>
+  <input type="file" id="impFile" accept=".json,application/json" hidden>
+ </div>
+ <div class="row"><button class="btn acc" id="sClose">Done</button></div>
+</div></div>
+
+<div class="modal" id="confM"><div class="card"><h3 id="confT"></h3><p id="confP" style="color:var(--mut)"></p>
+ <div class="row"><button class="btn" id="cNo">Cancel</button><button class="btn danger" id="cYes">Confirm</button></div></div></div>
+
+<div class="modal" id="viewer"><div class="card">
+ <div class="row" style="margin:0 0 8px;justify-content:space-between"><b id="vTitle"></b><span><button class="btn" id="vTab">↗ New tab</button> <button class="btn" id="vClose">✕</button></span></div>
+ <iframe id="vFrame" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"></iframe>
+</div></div>
+<div id="toast"></div>
+
+<script>
+(()=>{
+const N=40, LEN=4, ITER=250000, $=s=>document.querySelector(s);
+const enc=new TextEncoder(),dec=new TextDecoder();
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u)));
+const ub64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+const LS_META='vault.meta',LS_DATA='vault.data';
+let key=null, apps=[], meta=JSON.parse(localStorage.getItem(LS_META)||'null');
+
+/* ---------- crypto ---------- */
+async function baseKey(combo){return crypto.subtle.importKey('raw',enc.encode('vault:'+combo.join('-')),'PBKDF2',false,['deriveBits','deriveKey'])}
+async function hashCombo(combo,salt,iter){const k=await baseKey(combo);return b64(await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},k,256))}
+async function aesKey(combo,salt,iter){const k=await baseKey(combo);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function encryptJSON(obj,k){const iv=rnd(12);const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,enc.encode(JSON.stringify(obj)));return{iv:b64(iv),ct:b64(ct)}}
+async function decryptJSON(d,k){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:ub64(d.iv)},k,ub64(d.ct));return JSON.parse(dec.decode(pt))}
+async function save(){localStorage.setItem(LS_DATA,JSON.stringify(await encryptJSON(apps,key)))}
+function saveMeta(){localStorage.setItem(LS_META,JSON.stringify(meta))}
+async function verify(combo,m=meta){return await hashCombo(combo,ub64(m.hsalt),m.iter)===m.hash}
+async function newMeta(combo){const hs=rnd(16),ks=rnd(16);return{v:1,iter:ITER,len:LEN,hsalt:b64(hs),ksalt:b64(ks),hash:await hashCombo(combo,hs,ITER),autolock:meta?meta.autolock:5}}
+
+/* ---------- audio ---------- */
+let ac;function tick(f=1800,d=.03,v=.15){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+const buzz=n=>navigator.vibrate&&navigator.vibrate(n);
+
+/* ---------- dial ---------- */
+const svg=$('#dial');
+(function build(){let s=`<defs><radialGradient id="g1" cx="35%" cy="30%"><stop offset="0" stop-color="#8d96a3"/><stop offset=".5" stop-color="#3d434c"/><stop offset="1" stop-color="#15181c"/></radialGradient>
+<radialGradient id="g2" cx="40%" cy="35%"><stop offset="0" stop-color="#5b626d"/><stop offset="1" stop-color="#1a1d22"/></radialGradient></defs>
+<circle r="108" fill="#0a0b0d"/><circle r="104" fill="url(#g1)" stroke="#6b7380" stroke-width="1.5"/><g id="rot">`;
+for(let i=0;i<N;i++){const a=i*360/N,big=i%5==0;s+=`<line x1="0" y1="-100" x2="0" y2="${big?-88:-93}" stroke="${big?'#eef':'#aab'}" stroke-width="${big?2.2:1}" transform="rotate(${a})"/>`;
+ if(big)s+=`<text x="0" y="-74" fill="#e8ecf2" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle" font-family="monospace" transform="rotate(${a})">${i}</text>`;}
+for(let i=0;i<24;i++)s+=`<rect x="-3" y="-62" width="6" height="10" rx="2" fill="#2a2f36" transform="rotate(${i*15})"/>`;
+s+=`<circle r="50" fill="url(#g2)" stroke="#777f8b"/></g><circle r="34" fill="#101215" stroke="#3a3f48"/>`;svg.innerHTML=s})();
+const rot=svg.querySelector('#rot');let angle=0,num=0;
+function setAngle(a,snap){angle=a;if(snap)angle=Math.round(angle/(360/N))*(360/N);rot.setAttribute('transform',`rotate(${angle})`);
+ const n=((Math.round(-angle/(360/N))%N)+N)%N;if(n!==num){num=n;tick();}$('#readout').textContent=num}
+function step(d){setAngle(angle-d*360/N,true)}
+let drag=null;
+const ang=e=>{const r=svg.getBoundingClientRect();return Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))*180/Math.PI};
+svg.addEventListener('pointerdown',e=>{drag={a:ang(e),start:angle};svg.setPointerCapture(e.pointerId);svg.classList.add('drag')});
+svg.addEventListener('pointermove',e=>{if(!drag)return;let d=ang(e)-drag.a;setAngle(drag.start+d);});
+const endDrag=()=>{if(!drag)return;drag=null;svg.classList.remove('drag');setAngle(angle,true)};
+svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
+svg.addEventListener('wheel',e=>{e.preventDefault();step(e.deltaY>0?1:-1)},{passive:false});
+svg.addEventListener('dblclick',()=>commit());
+$('#cw').onclick=()=>step(1);$('#ccw').onclick=()=>step(-1);
+$('#setBtn').onclick=()=>commit();$('#back').onclick=()=>{entry.pop();renderSlots();tick(600)};
+
+/* ---------- lock flow ---------- */
+let mode,entry=[],first=null,busy=false;
+const lockEl=$('#lock'),door=$('#door'),msg=(t,c='')=>{const m=$('#msg');m.textContent=t;m.className=c};
+const PROMPT={setup1:'Create your combination: pick 4 numbers',setup2:'Enter the same combination again to confirm',unlock:'Enter your combination',chgOld:'Enter your CURRENT combination',chg1:'Enter a NEW combination',chg2:'Confirm the NEW combination'};
+function setMode(m,extra){mode=m;entry=[];renderSlots();msg(extra||PROMPT[m],extra&&extra.startsWith('✗')?'bad':'');$('#cancelChange').style.display=m.startsWith('chg')?'':'none'}
+function renderSlots(){$('#slots').innerHTML=Array.from({length:LEN},(_,i)=>`<div class="slot ${i<entry.length?'f':''} ${i==entry.length?'cur':''}">${i<entry.length?entry[i]:'–'}</div>`).join('')}
+function fail(t){door.classList.remove('shake');void door.offsetWidth;door.classList.add('shake');tick(160,.25,.3);buzz([80,50,80]);setTimeout(()=>setMode(mode,'✗ '+t),20)}
+async function commit(){if(busy||lockEl.style.display=='none')return;entry.push(num);tick(900,.06,.25);buzz(15);renderSlots();
+ if(entry.length<LEN)return;busy=true;msg('Checking…');const c=entry.slice();
+ try{
+  if(mode=='setup1'){first=c;setMode('setup2')}
+  else if(mode=='setup2'){if(c.join()!==first.join()){setMode('setup1');fail('Combinations did not match. Start over.')}
+   else{meta=await newMeta(c);key=await aesKey(c,ub64(meta.ksalt),meta.iter);apps=[];saveMeta();await save();openDoor('Combination set. Welcome!')}}
+  else if(mode=='unlock'){if(await verify(c)){key=await aesKey(c,ub64(meta.ksalt),meta.iter);const d=localStorage.getItem(LS_DATA);apps=d?await decryptJSON(JSON.parse(d),key):[];openDoor('Unlocked')}else fail('Wrong combination')}
+  else if(mode=='chgOld'){if(await verify(c))setMode('chg1');else fail('Wrong combination')}
+  else if(mode=='chg1'){first=c;setMode('chg2')}
+  else if(mode=='chg2'){if(c.join()!==first.join()){setMode('chg1');fail('Did not match. Enter new combination again.')}
+   else{const nm=await newMeta(c);const nk=await aesKey(c,ub64(nm.ksalt),nm.iter);meta=nm;key=nk;saveMeta();await save();openDoor('Combination changed');toast('Combination changed')}}
+ }catch(e){console.error(e);fail('Error: '+e.message)}
+ busy=false}
+function openDoor(t){msg('✓ '+t,'ok');tick(400,.15,.3);setTimeout(()=>tick(250,.3,.3),180);door.classList.add('open');
+ setTimeout(()=>{lockEl.style.display='none';door.classList.remove('open');$('#vault').style.display='block';render();bump()},1100)}
+function lock(){key=null;apps=[];$('#grid').innerHTML='';document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));closeViewer();
+ $('#vault').style.display='none';lockEl.style.display='flex';setAngle(0,true);setMode('unlock');tick(300,.2,.3)}
+$('#lockBtn').onclick=lock;
+$('#cancelChange').onclick=()=>{lockEl.style.display='none';$('#vault').style.display='block';render()};
+$('#chgBtn').onclick=()=>{$('#setM').classList.remove('on');$('#vault').style.display='none';lockEl.style.display='flex';setMode('chgOld')};
+document.addEventListener('keydown',e=>{if(lockEl.style.display=='none')return;
+ if(e.key=='ArrowRight'||e.key=='ArrowUp'){e.preventDefault();step(1)}else if(e.key=='ArrowLeft'||e.key=='ArrowDown'){e.preventDefault();step(-1)}
+ else if(e.key=='Enter'||e.key==' '){e.preventDefault();commit()}else if(e.key=='Backspace'){entry.pop();renderSlots()}
+ else if(/^\d$/.test(e.key)){}});
+
+/* ---------- auto-lock ---------- */
+let last=Date.now();const bump=()=>last=Date.now();
+['pointerdown','keydown','pointermove','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,bump,{passive:true}));
+setInterval(()=>{if(key&&meta&&meta.autolock>0&&Date.now()-last>meta.autolock*60000)lock()},5000);
+
+/* ---------- vault UI ---------- */
+const EMO='🔒 📁 📝 💰 📊 🎮 🎵 📷 🎬 💬 📧 🗓️ 🧮 🔧 🧪 🧠 🌐 🛒 🏦 ❤️ ⭐ 🚀 🐱 🔥 🗝️ 📚 🎨 🕹️ 🤖 ⚡'.split(' ');
+const COL=['#c0392b','#d35400','#d4a017','#27ae60','#16a085','#2980b9','#5b4bd6','#8e44ad','#c2185b','#546e7a','#6d4c41','#37474f'];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
+let dragId=null;
+function render(){const q=$('#search').value.trim().toLowerCase(),g=$('#grid');const list=apps.filter(a=>!q||a.name.toLowerCase().includes(q)||(a.url||'').toLowerCase().includes(q));
+ g.innerHTML=list.length?list.map(a=>`<div class="tile" draggable="${!q}" tabindex="0" data-id="${a.id}" style="--c:${a.color}"><div class="acts"><button data-a="edit" title="Edit">✏️</button><button data-a="del" title="Delete">🗑️</button></div><div class="ic">${esc(a.icon)}</div><div class="nm">${esc(a.name)}</div><div class="tp">${a.type=='link'?esc(hostOf(a.url)):'HTML app'}</div></div>`).join('')
+ :`<div class="empty">${apps.length?'No matches.':'Your vault is empty.<br>Click <b>+ Add app</b> to store a link or an HTML app.'}</div>`}
+const hostOf=u=>{try{return new URL(u).host}catch(e){return u}};
+$('#search').oninput=render;
+$('#grid').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t)return;const a=apps.find(x=>x.id==t.dataset.id);const b=e.target.closest('button');
+ if(b&&b.dataset.a=='edit')return openEdit(a);if(b&&b.dataset.a=='del')return confirmBox('Delete “'+a.name+'”?','This cannot be undone.',async()=>{apps=apps.filter(x=>x!==a);await save();render();toast('Deleted')});openApp(a)});
+$('#grid').addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.classList.contains('tile'))e.target.click()});
+$('#grid').addEventListener('dragstart',e=>{const t=e.target.closest('.tile');if(!t)return;dragId=t.dataset.id;t.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragId)});
+$('#grid').addEventListener('dragover',e=>{const t=e.target.closest('.tile');if(!t||!dragId)return;e.preventDefault();document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));t.classList.add('over')});
+$('#grid').addEventListener('dragend',()=>{dragId=null;document.querySelectorAll('.over,.dragging').forEach(x=>x.classList.remove('over','dragging'))});
+$('#grid').addEventListener('drop',async e=>{e.preventDefault();const t=e.target.closest('.tile');if(!t||!dragId||t.dataset.id==dragId)return;
+ const from=apps.findIndex(a=>a.id==dragId),to=apps.findIndex(a=>a.id==t.dataset.id);const [m]=apps.splice(from,1);apps.splice(to,0,m);await save();render()});
+// touch reorder: long-press then drag
+let tp=null;$('#grid').addEventListener('touchstart',e=>{const t=e.target.closest('.tile');if(!t||$('#search').value)return;tp={id:t.dataset.id,timer:setTimeout(()=>{tp.on=true;t.classList.add('dragging');buzz(30)},450)}},{passive:true});
+$('#grid').addEventListener('touchmove',e=>{if(!tp)return;if(!tp.on){clearTimeout(tp.timer);tp=null;return}e.preventDefault();const p=e.touches[0];const el=document.elementFromPoint(p.clientX,p.clientY);const o=el&&el.closest('.tile');document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));if(o&&o.dataset.id!=tp.id){o.classList.add('over');tp.to=o.dataset.id}},{passive:false});
+$('#grid').addEventListener('touchend',async e=>{if(!tp)return;clearTimeout(tp.timer);const t=tp;tp=null;if(t.on){e.preventDefault();if(t.to){const f=apps.findIndex(a=>a.id==t.id),to=apps.findIndex(a=>a.id==t.to);const [m]=apps.splice(f,1);apps.splice(to,0,m);await save()}render()}});
+
+let vUrl=null,cur=null;
+function openApp(a){if(a.type=='link'){window.open(a.url,'_blank','noopener,noreferrer');return}
+ closeViewer();vUrl=URL.createObjectURL(new Blob([a.html],{type:'text/html;charset=utf-8'}));cur=a;$('#vTitle').textContent=a.icon+' '+a.name;$('#vFrame').src=vUrl;$('#viewer').classList.add('on')}
+function closeViewer(){$('#viewer').classList.remove('on');$('#vFrame').src='about:blank';if(vUrl)URL.revokeObjectURL(vUrl);vUrl=null}
+$('#vClose').onclick=closeViewer;$('#vTab').onclick=()=>{if(cur){const u=URL.createObjectURL(new Blob([cur.html],{type:'text/html;charset=utf-8'}));window.open(u,'_blank');setTimeout(()=>URL.revokeObjectURL(u),60000)}};
+
+/* edit modal */
+let ed=null;
+$('#emojis').innerHTML=EMO.map(e=>`<button type="button" data-e="${e}">${e}</button>`).join('');
+$('#colors').innerHTML=COL.map(c=>`<button type="button" data-c="${c}" style="background:${c}"></button>`).join('');
+$('#emojis').onclick=e=>{const b=e.target.closest('button');if(b){ed.icon=b.dataset.e;edSync()}};
+$('#colors').onclick=e=>{const b=e.target.closest('button');if(b){ed.color=b.dataset.c;edSync()}};
+$('#tLink').onclick=()=>{ed.type='link';edSync()};$('#tHtml').onclick=()=>{ed.type='html';edSync()};
+function edSync(){$('#tLink').classList.toggle('sel',ed.type=='link');$('#tHtml').classList.toggle('sel',ed.type=='html');$('#linkBox').style.display=ed.type=='link'?'':'none';$('#htmlBox').style.display=ed.type=='html'?'':'none';
+ document.querySelectorAll('#emojis button').forEach(b=>b.classList.toggle('sel',b.dataset.e==ed.icon));document.querySelectorAll('#colors button').forEach(b=>b.classList.toggle('sel',b.dataset.c==ed.color));
+ $('#fileInfo').textContent=ed.html?`(stored: ${ed.fileName||'file'}, ${Math.round(ed.html.length/1024)} KB — choose to replace)`:''}
+function openEdit(a){ed=a?{...a}:{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),type:'link',icon:'🔒',color:COL[apps.length%COL.length]};ed.orig=a;
+ $('#editT').textContent=a?'Edit app':'Add app';$('#fName').value=ed.name||'';$('#fUrl').value=ed.url||'';$('#fFile').value='';edSync();$('#editM').classList.add('on');setTimeout(()=>$('#fName').focus(),50)}
+$('#addBtn').onclick=()=>openEdit(null);$('#eCancel').onclick=()=>$('#editM').classList.remove('on');
+$('#fFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const was=$('#fName').value;ed.html=await f.text();ed.fileName=f.name;if(!was&&!$('#fName').value)$('#fName').value=f.name.replace(/\.html?$/i,'');edSync()};
+$('#eSave').onclick=async()=>{const name=$('#fName').value.trim();if(!name)return toast('Please enter a name');
+ if(ed.type=='link'){let u=$('#fUrl').value.trim();if(!u)return toast('Please enter a URL');if(!/^[a-z][a-z0-9+.-]*:/i.test(u))u='https://'+u;if(/^(javascript|data):/i.test(u))return toast('That URL type is not allowed');ed.url=u;delete ed.html;delete ed.fileName}
+ else{if(!ed.html)return toast('Please choose an HTML file');delete ed.url}
+ ed.name=name;const o=ed.orig;delete ed.orig;if(o)apps[apps.indexOf(o)]=ed;else apps.push(ed);
+ try{await save()}catch(e){return toast('Save failed (storage full?)')}$('#editM').classList.remove('on');render();toast(o?'Saved':'Added '+name)};
+
+/* settings */
+$('#setBtn2').onclick=()=>{$('#fAuto').value=meta.autolock;$('#setM').classList.add('on')};
+$('#sClose').onclick=()=>{$('#setM').classList.remove('on')};
+$('#fAuto').onchange=()=>{meta.autolock=Math.max(0,+$('#fAuto').value||0);saveMeta();toast('Auto-lock: '+(meta.autolock?meta.autolock+' min':'off'))};
+$('#expBtn').onclick=async()=>{await save();const blob=new Blob([JSON.stringify({app:'vault',exported:new Date().toISOString(),meta,data:JSON.parse(localStorage.getItem(LS_DATA))})],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='vault-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast('Encrypted backup exported')};
+$('#impBtn').onclick=()=>$('#impFile').click();
+$('#impFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;let j;try{j=JSON.parse(await f.text());if(j.app!='vault'||!j.meta||!j.data)throw 0}catch(_){return toast('Not a valid vault backup')}
+ confirmBox('Import backup?','This REPLACES your current vault. The vault will lock and you must enter the combination that was used when the backup was made.',()=>{localStorage.setItem(LS_META,JSON.stringify(j.meta));localStorage.setItem(LS_DATA,JSON.stringify(j.data));meta=j.meta;lock();toast('Backup imported — enter its combination')})};
+
+let cb=null;function confirmBox(t,p,fn){$('#confT').textContent=t;$('#confP').textContent=p;cb=fn;$('#confM').classList.add('on')}
+$('#cNo').onclick=()=>$('#confM').classList.remove('on');$('#cYes').onclick=()=>{$('#confM').classList.remove('on');cb&&cb()};
+document.addEventListener('keydown',e=>{if(e.key=='Escape'){document.querySelectorAll('.modal.on').forEach(m=>m.id=='viewer'?closeViewer():m.classList.remove('on'))}});
+let tt;function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('on'),2200)}
+
+if(!window.crypto||!crypto.subtle){msg('This browser needs a secure context (https or a local file) for encryption.','bad');return}
+setAngle(0,true);setMode(meta?'unlock':'setup1');
+window.__vault={step,commit,get num(){return num}};
+})();
+</script></body></html>
