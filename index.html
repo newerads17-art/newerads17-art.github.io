@@ -210,7 +210,7 @@ setInterval(()=>{if(key&&meta&&meta.autolock>0&&Date.now()-last>meta.autolock*60
 /* ---------- vault UI ---------- */
 const EMO='🔒 📁 📝 💰 📊 🎮 🎵 📷 🎬 💬 📧 🗓️ 🧮 🔧 🧪 🧠 🌐 🛒 🏦 ❤️ ⭐ 🚀 🐱 🔥 🗝️ 📚 🎨 🕹️ 🤖 ⚡'.split(' ');
 const COL=['#c0392b','#d35400','#d4a017','#27ae60','#16a085','#2980b9','#5b4bd6','#8e44ad','#c2185b','#546e7a','#6d4c41','#37474f'];
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>('\x26'+{'&':'amp','<':'lt','>':'gt','"':'quot',"'":'#39'}[c]+';'));
 let dragId=null;
 function render(){const q=$('#search').value.trim().toLowerCase(),g=$('#grid');const list=apps.filter(a=>!q||a.name.toLowerCase().includes(q)||(a.url||'').toLowerCase().includes(q));
  g.innerHTML=list.length?list.map(a=>`<div class="tile" draggable="${!q}" tabindex="0" data-id="${a.id}" style="--c:${a.color}"><div class="acts"><button data-a="edit" title="Edit">✏️</button><button data-a="del" title="Delete">🗑️</button></div><div class="ic">${esc(a.icon)}</div><div class="nm">${esc(a.name)}</div><div class="tp">${a.type=='link'?esc(hostOf(a.url)):'HTML app'}</div></div>`).join('')
