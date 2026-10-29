@@ -724,7 +724,7 @@ async function startGame(kind,ef){
     togglePause(){if(mode!=='game'||this.over)return;this.paused=!this.paused;$('pause').style.display=this.paused?'flex':'none';}};
   $('lvlname').textContent=L.name;$('lvlnote').textContent=L.note;
   $('alerts').innerHTML=(L.alerts.slice(0,6).map(a=>`<div class="al ${a.rk===0||/Tornado/.test(a.event)?'tor':''}"><b>${a.event}</b> ${String(a.area).slice(0,60)}</div>`).join(''))||'<div class="al">No active tornado/severe warnings</div>';
-  $('loading').style.display='none';$('hud').style.display='block';$('touch').style.display='';mode='game';last=performance.now();
+  $('loading').style.display='none';$('hud').style.display='block';$('touch').style.display='block';mode='game';last=performance.now();
 }
 let last=0,flashT=0;
 function flash(s){$('flash').textContent=s;flashT=1.5;}
