@@ -707,13 +707,6 @@ function buildCar(w){const T=w.THREE;const g=new T.Group();
   for(const[x,z]of[[-1.1,1.5],[1.1,1.5],[-1.1,-1.5],[1.1,-1.5]]){const wh=new T.Mesh(new T.CylinderGeometry(.5,.5,.4,12),new T.MeshStandardMaterial({color:0x111111}));wh.rotation.z=Math.PI/2;wh.position.set(x,.5,z);g.add(wh);}
   g.scale.setScalar(6); // visible at storm scale (gameplay exaggeration)
   w.scene.add(g);return g;}
-// Close-range funnel for the chase camera (Cierra's raymarched funnel is a 1.3 km volume and vanishes once the camera is inside it).
-let gFunnel=null;
-function buildFunnel(w){const T=w.THREE;const g=new T.Group();
-  for(let i=0;i<3;i++){const geo=new T.CylinderGeometry(520-i*60,60+i*25,1600,40,24,true);const p=geo.attributes.position;
-    for(let k=0;k<p.count;k++){const y=p.getY(k),a=Math.atan2(p.getZ(k),p.getX(k)),n=1+0.12*Math.sin(a*5+y*0.01+i)+0.08*Math.sin(y*0.03+i*2);p.setX(k,p.getX(k)*n);p.setZ(k,p.getZ(k)*n);}
-    geo.translate(0,800,0);const m=new T.Mesh(geo,new T.MeshStandardMaterial({color:[0x2c2824,0x3b352f,0x221e1a][i],transparent:true,opacity:0.8-i*0.15,fog:false,side:T.DoubleSide,depthWrite:false,roughness:1}));g.add(m);}
-  w.scene.add(g);return g;}
 function probeMesh(w,x,z){const T=w.THREE;const m=new T.Mesh(new T.ConeGeometry(4,14,8),new T.MeshStandardMaterial({color:0x33ff88,emissive:0x116633}));m.position.set(x,w.heightAt(x,z)+7,z);w.scene.add(m);return m;}
 
 async function startGame(kind,ef){
@@ -721,7 +714,7 @@ async function startGame(kind,ef){
   const L=await buildLevel(kind,ef);const w=ensureWorld();w.THREE=window.THREE;
   if(L.radar) w.setGroundTexture(L.radar.canvas,L.radar.bounds);
   const sim=makeSim(L,4000);w.setParticleCount(4000);
-  if(!carMeshes) carMeshes=buildCar(w);if(!gFunnel) gFunnel=buildFunnel(w);gFunnel.visible=true;
+  if(!carMeshes) carMeshes=buildCar(w);
   (G?.probes||[]).forEach(p=>w.scene.remove(p.mesh));
   // start 3.5 km from tornado, roughly ahead of it
   const mv=sim.state.motion,ang=Math.atan2(-mv.v,mv.u)+ (Math.random()-.5)*1.2,d0=3500;
@@ -777,7 +770,6 @@ function gameStep(dt){const g=G,w=g.w,s=g.sim;if(g.paused||g.over){render();retu
 function render(d,ws,st){const g=G,w=g.w,s=g.sim;const n=s.particles.pos.length/3;phys2three(s.particles.pos,g.buf,n);
   const cst=s.state;const gy=w.heightAt(car.x,car.z);carMeshes.position.set(car.x,gy,car.z);carMeshes.rotation.y=car.h-Math.PI/2;
   if(g.hitTimer>0){g.hitTimer-=0.016;carMeshes.position.x+=(Math.random()-.5)*2;}
-  {const R=cst.coreRadius,cx=cst.center.x,cz=-cst.center.y;gFunnel.position.set(cx,w.heightAt(cx,cz),cz);gFunnel.scale.set(Math.max(0.35,R/250),1,Math.max(0.35,R/250));gFunnel.children.forEach((m,i)=>m.rotation.y-=0.016*(cst.vMax/30)*(1+i*0.3));}
   const back=70,cam={pos:[car.x-Math.cos(car.h)*back,gy+28,car.z+Math.sin(car.h)*back],look:[car.x+Math.cos(car.h)*40,gy+18,car.z-Math.sin(car.h)*40],fov:62};
   w.update(g.buf,n,0.016,{t:s.time,cx:cst.center.x,cz:-cst.center.y,vmax:cst.vMax,coreRadius:cst.coreRadius},{cam});
   if(d==null)return;
@@ -812,7 +804,7 @@ function showScreen(id){['menu','over','pause'].forEach(s=>$(s).style.display=s=
 let S=null;
 async function startSim(kind){showScreen(null);$('loading').style.display='block';const L=await buildLevel(kind||'moore');const w=ensureWorld();
   if(L.radar)w.setGroundTexture(L.radar.canvas,L.radar.bounds);const n=+$('snp').value;const sim=makeSim(L,n);w.setParticleCount(n);
-  if(carMeshes)carMeshes.visible=false;if(gFunnel)gFunnel.visible=false;
+  if(carMeshes)carMeshes.visible=false;
   S={L,sim,w,buf:new Float32Array(n*3),playing:true};$('simname').textContent=L.name;$('simnote').textContent=L.note;
   $('simalerts').innerHTML=L.alerts.slice(0,8).map(a=>`<div class="al ${/Tornado/.test(a.event)?'tor':''}"><b>${a.event}</b><br>${String(a.area).slice(0,80)}${a.expires?'<br><small>until '+CT(a.expires)+'</small>':''}</div>`).join('')||'<div class="al">No active warnings in this dataset.</div>';
   $('loading').style.display='none';$('simui').style.display='block';mode='sim';w.setCameraMode('orbit');}
