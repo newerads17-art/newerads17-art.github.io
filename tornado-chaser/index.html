@@ -23,7 +23,10 @@ small,.muted{color:#9fb0c0}.row{margin:10px 0}
 @media (hover:hover){#touch{opacity:.35}}
 #simui{position:fixed;left:10px;top:10px;width:320px;background:#0d151ecc;border-radius:10px;padding:10px;display:none;z-index:10;max-height:95vh;overflow:auto}
 #loading{position:fixed;inset:0;display:none;z-index:30;background:#000a;text-align:center;padding-top:40vh;font-size:20px}
-input[type=range]{width:100%}select{background:#1b2633;color:#fff;border:1px solid #345;padding:3px}
+input[type=range]{width:100%}
+@media (max-width:600px){#stats{min-width:0;max-width:52vw;font-size:12px;padding:6px 8px}#mapbox{padding:4px}#mini{width:120px;height:120px}
+ #warn{bottom:auto;top:190px;left:10px;max-width:52vw;font-size:11px;max-height:110px;overflow:hidden}#help{display:none}
+ #touch{bottom:10px;right:8px}#touch button{width:58px;height:58px}#simui{width:auto;right:10px;max-height:45vh}}select{background:#1b2633;color:#fff;border:1px solid #345;padding:3px}
 </style></head><body>
 <div id="menu" class="scr"><div class="card">
  <h1>TORNADO <span>CHASER</span></h1><div class="muted">Real NOAA radar · NWS warnings · physics-based vortex &amp; debris</div>
