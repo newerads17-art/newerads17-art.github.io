@@ -533,16 +533,23 @@ const funnelMat = new THREE.ShaderMaterial({
   uniforms: { t: { value: 0 }, center: { value: new THREE.Vector3() }, R: { value: 60 }, H: { value: 1500 }, tilt: { value: 0 },
     boxR: { value: 1300 }, boxH: { value: 1700 } },
   vertexShader: `varying vec3 wp; void main(){vec4 w=modelMatrix*vec4(position,1.);wp=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
-  fragmentShader: NOISE + `uniform float t,R,H,tilt; uniform vec3 center; varying vec3 wp;
+  fragmentShader: NOISE + `uniform float t,R,H,tilt,boxR,boxH; uniform vec3 center; varying vec3 wp;
+  // funnel wall radius vs. normalised height h (0 ground .. 1 cloud base)
+  float wallR(float h){ return R*(0.55+0.35*h+1.1*h*h*h); }
   float dens(vec3 p){ vec3 q=p-center; float h=clamp(q.y/H,0.,1.); q.x-=tilt*q.y;
     float r=length(q.xz); float a=atan(q.z,q.x);
-    float rf=R*(0.55+0.4*h+2.6*pow(h,3.0)); rf*=1.+.12*sin(q.y*0.02-t*2.);
+    float rf=wallR(h)*(1.+.10*sin(q.y*0.02-t*2.));
     float sw=a+t*3.0-q.y*0.004; vec3 np=vec3(cos(sw)*r*0.02, q.y*0.008-t*1.5, sin(sw)*r*0.02);
     float n=fbm(np);
-    float funnel=smoothstep(rf*1.15,rf*0.7,r+ (n-.5)*rf*0.6)*step(0.,q.y)*(1.-smoothstep(H*0.97,H,q.y));
-    float dust=smoothstep(R*4.5,R*1.2,r+(n-.5)*R*2.)*exp(-q.y/90.)*0.8;
-    return max(funnel*(0.6+0.6*n),dust*n*1.4);}
-  uniform float boxR, boxH;
+    // annular profile: peaks at the wall radius, thinner inside (hollow-ish core), zero well outside
+    float rr=r+(n-.5)*rf*0.35, w=rf*0.32;
+    float shell=exp(-pow((rr-rf)/w,2.)) + 0.30*smoothstep(rf,0.,rr);
+    float vfade=smoothstep(0.,25.,q.y)*(1.-smoothstep(H*0.80,H*0.97,q.y));  // top/bottom fade before the bound
+    float rfade=(1.-smoothstep(wallR(h)*1.2,wallR(h)*1.55+50.,r))*(1.-smoothstep(boxR*0.6,boxR*0.8,r)); // tapered (cone-like) smooth radial fade, zero well before the bound
+    float funnel=shell*vfade*rfade*(0.7+0.6*n);
+    // low dust ring near the ground only
+    float dust=exp(-pow((rr-R*1.3)/(R*0.7),2.))*exp(-q.y/35.)*0.45*n*rfade;
+    return max(funnel,dust);}
   // ray vs. bounding cylinder (axis y through center, y in [center.y, center.y+boxH]); returns (tNear,tFar)
   vec2 hitCyl(vec3 ro, vec3 rd){
     vec3 o=ro-center; float A=dot(rd.xz,rd.xz), B=dot(o.xz,rd.xz), C=dot(o.xz,o.xz)-boxR*boxR;
@@ -555,13 +562,13 @@ const funnelMat = new THREE.ShaderMaterial({
   }
   void main(){ vec3 ro=cameraPosition, rd=normalize(wp-ro);
     vec2 hit=hitCyl(ro,rd); if(hit.y<=hit.x) discard;
-    float tStart=hit.x, tEnd=hit.y; const int STEPS=112;
+    float tStart=hit.x, tEnd=hit.y; const int STEPS=128;
     float stp=(tEnd-tStart)/float(STEPS); vec4 acc=vec4(0);
     float jitter=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
-    for(int i=0;i<STEPS;i++){ float tt=tStart+stp*(float(i)+jitter); vec3 p=ro+rd*tt; float d=dens(p);
+    for(int i=0;i<STEPS;i++){ float tt=tStart+stp*(float(i)+jitter); vec3 p=ro+rd*tt; vec3 qq=p-center; float hb=clamp(qq.y/H,0.,1.); float d=(length(qq.xz)<wallR(hb)*1.6+80.+abs(tilt*qq.y))?dens(p):0.; // tapered bound: skip work outside the cone
       if(d>0.01){
         float nearFade=smoothstep(8.,90.,tt);              // no solid wall right at the lens
-        float a=1.-exp(-d*stp*0.035*nearFade);              // denser than before: reads up close
+        float a=1.-exp(-d*stp*0.05*nearFade);              // denser than before: reads up close
         vec3 q=p-center; float rr=length(q.xz); float sh=0.3+0.45*clamp(q.y/H,0.,1.);
         vec3 col=mix(vec3(.16,.15,.14),vec3(.55,.55,.57),sh)*(0.65+0.6*fbm(p*0.01));
         col*=mix(0.7,1.15,smoothstep(0.,R,rr));             // darker core, lighter rim -> contrast
@@ -617,8 +624,9 @@ function update(positions, count, dt, state = {}, { cam, render = true } = {}) {
   const g = heightAt(vort.x, vort.z);
   funnel.position.set(vort.x, g + FUN_H / 2, vort.z);
   funnelMat.uniforms.center.value.set(vort.x, g, vort.z);
-  funnelMat.uniforms.R.value = Math.max(150, R * (1.2 + vmax / 60)); // visible condensation funnel ~300-700 m wide at base // stronger vortex -> wider condensation funnel
-  funnelMat.uniforms.H.value = 1560; funnelMat.uniforms.tilt.value = 0.12 * Math.sin(t * 0.07);
+  funnelMat.uniforms.R.value = Math.min(320, Math.max(130, R * (0.9 + vmax / 200))); // visible condensation funnel ~300-700 m wide at base // stronger vortex -> wider condensation funnel
+  funnelMat.uniforms.H.value = 1560;
+  { const Rv = funnelMat.uniforms.R.value; funnelMat.uniforms.boxR.value = Rv * 2.0 * 1.6 + 60 + 0.12 * 1560; funnel.scale.set(funnelMat.uniforms.boxR.value / FUN_R, 1, funnelMat.uniforms.boxR.value / FUN_R); } funnelMat.uniforms.tilt.value = 0.12 * Math.sin(t * 0.07);
   funnelMat.uniforms.t.value = t; cloudMat.uniforms.t.value = t; cloudMat.uniforms.vc.value.set(vort.x, vort.z);
   wallCloud.position.set(vort.x + 300, 1600, vort.z - 200); wallCloud.rotation.y = -t * 0.08;
   let a = dGeo.getAttribute('position');
